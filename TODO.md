@@ -8,13 +8,13 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
 ## Phase 0 — Project Setup
 
 ### 0.1 Repository & Tooling
-- [ ] 0.1.1 Initialize repo with `uv init --lib pyrbmi`
-- [ ] 0.1.2 Configure `pyproject.toml`: name, version `0.0.1.dev0`, description, authors, Python ≥3.11
-- [ ] 0.1.3 Add `[project.optional-dependencies]`: `bayes = [pymc, pytensor, arviz]`, `dev = [rpy2, pytest, ...]`
-- [ ] 0.1.4 Configure `ruff` (linting + formatting): `line-length=100`, `target-version="py311"`
-- [ ] 0.1.5 Configure `mypy`: strict mode, `src` layout
-- [ ] 0.1.6 Add `.gitignore`, `.python-version` (3.11)
-- [ ] 0.1.7 Add `uv.lock` to version control
+- [x] 0.1.1 Initialize repo with `uv init --lib pyrbmi`
+- [x] 0.1.2 Configure `pyproject.toml`: name, version `0.0.1.dev0`, description, authors, Python ≥3.11
+- [x] 0.1.3 Add `[project.optional-dependencies]`: `bayes = [pymc, pytensor, arviz]`, `dev = [rpy2, pytest, ...]`
+- [x] 0.1.4 Configure `ruff` (linting + formatting): `line-length=100`, `target-version="py311"`
+- [x] 0.1.5 Configure `mypy`: strict mode, `src` layout
+- [x] 0.1.6 Add `.gitignore`, `.python-version` (3.11)
+- [x] 0.1.7 Add `uv.lock` to version control
 
 ### 0.2 CI/CD Pipeline
 
