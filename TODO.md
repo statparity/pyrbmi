@@ -55,10 +55,10 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
   - [x] 0.2.10.e Fail PR if parity report regresses (tolerance breach)
 
 #### 0.2.D Local Dev R Setup
-- [ ] 0.2.11 Add `.Rprofile` to repo root (dev convenience, gitignored from src/)
-  - [ ] 0.2.11.a Set Posit Package Manager binary mirror: `options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/noble/latest"))`
-  - [ ] 0.2.11.b Eliminates source compilation locally — same 5-10 sec install as r2u
-- [ ] 0.2.12 Document R local setup in `CONTRIBUTING.md`: install via binary mirror, not CRAN default
+- [x] 0.2.11 Add `.Rprofile` to repo root (dev convenience, gitignored from src/)
+  - [x] 0.2.11.a Set Posit Package Manager binary mirror: `options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/noble/latest"))`
+  - [x] 0.2.11.b Eliminates source compilation locally — same 5-10 sec install as r2u
+- [x] 0.2.12 Document R local setup in `CONTRIBUTING.md`: install via binary mirror, not CRAN default
 
 ### 0.3 Documentation Infrastructure
 - [ ] 0.3.1 Initialize MkDocs + mkdocstrings (Google-style docstrings)
