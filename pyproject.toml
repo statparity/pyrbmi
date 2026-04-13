@@ -38,7 +38,7 @@ dependencies = [
 [project.optional-dependencies]
 bayes = [
     "pymc>=5.10",
-    "pytensor>=2.18",
+    "pytensor>=2.38.2",
     "arviz>=0.16",
 ]
 dev = [
