@@ -28,7 +28,7 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,7 +82,7 @@ jobs:
             const fs = require('fs');
             const summary = fs.readFileSync('parity-summary.md', 'utf8');
             const outcome = '${{ job.status }}' === 'success' ? '✅ PASSED' : '❌ FAILED';
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

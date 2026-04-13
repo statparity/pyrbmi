@@ -21,8 +21,8 @@ for clinical trials, with numerical parity to R's rbmi package.
 
 from pyrbmi.data import RBMIDataset
 from pyrbmi.imputer import Imputer
+from pyrbmi.pool import PooledResults, pool
 from pyrbmi.strategy import Strategy
-from pyrbmi.pool import pool, PooledResults
 
 __version__ = "0.0.1.dev0"
 

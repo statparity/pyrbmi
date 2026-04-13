@@ -1,0 +1,43 @@
+name: License Header Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+  workflow_dispatch:
+
+jobs:
+  license-check:
+    name: Check SPDX License Headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check License Headers
+        uses: apache/skywalking-eyes@v0.6.0
+        with:
+          config: .licenserc.yaml
+          mode: check
+
+      - name: Fix License Headers (on failure)
+        if: failure()
+        uses: apache/skywalking-eyes@v0.6.0
+        with:
+          config: .licenserc.yaml
+          mode: fix
+
+      - name: Suggest fixes
+        if: failure()
+        run: |
+          echo "::error::License header check failed!"
+          echo "::error::Run 'uv run license-eye header fix' locally to fix automatically."
+          echo "::error::Or add the following header to each Python file:"
+          echo "::error::  # SPDX-License-Identifier: Apache-2.0"
+          echo "::error::  # Copyright 2026 StatParity"

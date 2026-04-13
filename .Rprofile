@@ -10,7 +10,7 @@ if (Sys.info()["sysname"] == "Linux") {
     id_line <- grep("^ID=", lines, value = TRUE)
     gsub('ID="?', "", id_line)
   }, error = function(e) "ubuntu")
-  
+
   # Map distro to PPM codename
   codename <- switch(distro,
     "ubuntu" = "noble",    # 24.04
@@ -18,19 +18,19 @@ if (Sys.info()["sysname"] == "Linux") {
     "fedora" = "fc40",
     "noble"  # default
   )
-  
+
   options(repos = c(
     CRAN = paste0("https://packagemanager.posit.co/cran/__linux__/, codename, /latest"),
     PPM = "https://packagemanager.posit.co/cran/latest"
   ))
-  
+
   message(sprintf("Using Posit Package Manager binary mirror for %s (%s)", distro, codename))
-  
+
 } else if (Sys.info()["sysname"] == "Darwin") {
   # macOS - use PPM but no binaries available, use CRAN
   options(repos = c(CRAN = "https://cloud.r-project.org"))
   message("Using CRAN (macOS binaries from CRAN)")
-  
+
 } else if (Sys.info()["sysname"] == "Windows") {
   # Windows - use PPM or CRAN (both have binaries)
   options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
