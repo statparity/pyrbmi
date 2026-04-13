@@ -45,7 +45,7 @@ dev = [
     "rpy2>=3.5",
     "pytest>=7.4",
     "pytest-cov>=4.1",
-    "mypy>=1.7",
+    "mypy>=1.20.1",
     "ruff>=0.1",
 ]
 docs = [
