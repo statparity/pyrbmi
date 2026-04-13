@@ -1,0 +1,33 @@
+pyrbmi
+Copyright 2026 StatParity
+
+This product is a Python implementation of reference-based multiple imputation
+methods originally developed in R.
+
+Upstream References and Attributions:
+
+1. rbmi (R package)
+   Copyright: openpharma
+   License: Apache-2.0
+   Reference: Gower-Page C, et al. (2022). rbmi: A R package for standard and
+   reference based multiple imputation. Journal of Open Source Software,
+   7(78), 4251. https://doi.org/10.21105/joss.04251
+   Repository: https://github.com/openpharma/rbmi
+
+2. ICH E9(R1) Estimands Framework
+   Source: International Council for Harmonisation of Technical Requirements
+   for Pharmaceuticals for Human Use
+   Reference: ICH E9(R1) (2019). Statistical Principles for Clinical Trials:
+   Addendum on Estimands and Sensitivity Analysis. Step 4, November 2019.
+   URL: https://www.ich.org/page/efficacy-guidelines
+
+3. Multiple Imputation Theory
+   Based on: Rubin DB (1987). Multiple Imputation for Nonresponse in Surveys.
+   John Wiley & Sons.
+
+This software maintains numerical parity with R's rbmi package for
+regulatory submission workflows. Validation against R rbmi is performed
+automatically via the test suite.
+
+For the full list of dependencies and their licenses, see the package
+documentation.

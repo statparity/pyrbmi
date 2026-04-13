@@ -67,9 +67,9 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
 - [x] 0.3.4 Add GitHub Pages deployment action
 
 ### 0.4 License & Legal
-- [ ] 0.4.1 Add `LICENSE` file (Apache-2.0, full text)
-- [ ] 0.4.2 Add SPDX header template for source files: `# SPDX-License-Identifier: Apache-2.0`
-- [ ] 0.4.3 Add `NOTICE` file (attribution for upstream references: R `rbmi`, ICH E9(R1))
+- [x] 0.4.1 Add `LICENSE` file (Apache-2.0, full text)
+- [x] 0.4.2 Add SPDX header template for source files: `# SPDX-License-Identifier: Apache-2.0`
+- [x] 0.4.3 Add `NOTICE` file (attribution for upstream references: R `rbmi`, ICH E9(R1))
 
 ---
 
