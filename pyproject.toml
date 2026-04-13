@@ -43,7 +43,7 @@ bayes = [
 ]
 dev = [
     "rpy2>=3.5",
-    "pytest>=7.4",
+    "pytest>=9.0.3",
     "pytest-cov>=4.1",
     "mypy>=1.7",
     "ruff>=0.1",
