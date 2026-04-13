@@ -1,0 +1,98 @@
+name: R Parity Validation
+
+on:
+  # Weekly validation against R rbmi
+  schedule:
+    - cron: "0 6 * * 1"  # Monday 6 AM UTC (after base image rebuild)
+  # Manual trigger for debugging
+  workflow_dispatch:
+  # PR validation (only if R-related files change)
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/test_vs_r/**"
+      - "pyproject.toml"
+      - "uv.lock"
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-r-base
+
+jobs:
+  validate-r:
+    name: Validate against R rbmi
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/statparity/pyrbmi-r-base:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify R environment
+        run: |
+          R -e "packageVersion('rbmi')"
+          R -e "packageVersion('rstan')"
+          python3 -c "import rpy2; print(f'rpy2: {rpy2.__version__}')"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.x"
+          enable-cache: true
+
+      - name: Sync Python dependencies
+        run: uv sync --extra bayes
+
+      - name: Run R parity tests
+        run: uv run pytest tests/test_vs_r/ -v --tb=short
+        env:
+          RPY2_CFFI_MODE: ANY  # Use pre-installed R
+
+      - name: Generate parity report
+        if: always()
+        run: |
+          uv run pytest tests/test_vs_r/ -v --json-report --json-report-file=parity-report.json || true
+          echo "## R Parity Test Results" > parity-summary.md
+          echo "- **Commit:** ${{ github.sha }}" >> parity-summary.md
+          echo "- **Date:** $(date -u)" >> parity-summary.md
+          echo "- **R rbmi version:** $(R -e 'packageVersion(\"rbmi\")' | grep -o '[0-9.]*')" >> parity-summary.md
+          echo "" >> parity-summary.md
+          echo "See parity-report.json for full details." >> parity-summary.md
+
+      - name: Upload parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-report-${{ github.run_id }}
+          path: |
+            parity-report.json
+            parity-summary.md
+          retention-days: 30
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('parity-summary.md', 'utf8');
+            const outcome = '${{ job.status }}' === 'success' ? '✅ PASSED' : '❌ FAILED';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## R Parity Validation ${outcome}\n\n${summary}\n\n[View full report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+            });
+
+      - name: Fail on regression
+        if: github.event_name == 'pull_request' && failure()
+        run: |
+          echo "::error::R parity test failed! Numerical regression detected."
+          echo "Review the parity report artifact for tolerance breaches."
+          exit 1

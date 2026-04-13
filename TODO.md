@@ -47,12 +47,12 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
   - [x] 0.2.9.a Trigger `build-r-base.yml` rebuild on `renv.lock` change
 
 #### 0.2.C R Parity Workflow — scheduled, uses pre-built image
-- [ ] 0.2.10 GitHub Actions: `validate-r.yml`
-  - [ ] 0.2.10.a `container: ghcr.io/your-org/pyrbmi-r-base:latest` — no R compilation at runtime
-  - [ ] 0.2.10.b Trigger: weekly schedule + manual dispatch
-  - [ ] 0.2.10.c Steps: `uv sync` → `pytest tests/test_vs_r/ -v`
-  - [ ] 0.2.10.d Upload parity report as workflow artifact
-  - [ ] 0.2.10.e Fail PR if parity report regresses (tolerance breach)
+- [x] 0.2.10 GitHub Actions: `validate-r.yml`
+  - [x] 0.2.10.a `container: ghcr.io/your-org/pyrbmi-r-base:latest` — no R compilation at runtime
+  - [x] 0.2.10.b Trigger: weekly schedule + manual dispatch
+  - [x] 0.2.10.c Steps: `uv sync` → `pytest tests/test_vs_r/ -v`
+  - [x] 0.2.10.d Upload parity report as workflow artifact
+  - [x] 0.2.10.e Fail PR if parity report regresses (tolerance breach)
 
 #### 0.2.D Local Dev R Setup
 - [ ] 0.2.11 Add `.Rprofile` to repo root (dev convenience, gitignored from src/)
