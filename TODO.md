@@ -33,18 +33,18 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
 > Strategy: pre-built Docker image using r2u (Rocker project) — serves R packages
 > as pre-compiled .deb via apt. Install time: 5-10 sec vs 2-5 min from source.
 
-- [ ] 0.2.7 Create `docker/r-validation/Dockerfile`
-  - [ ] 0.2.7.a Base: `ubuntu:24.04`
-  - [ ] 0.2.7.b Install r2u (CRAN-as-apt, Rocker project) — pre-built .deb binaries
-  - [ ] 0.2.7.c `install2.r rbmi rstan` — seconds not minutes via apt
-  - [ ] 0.2.7.d Install Python + uv + rpy2 in same image
-  - [ ] 0.2.7.e Pin image with `LABEL org.opencontainers.image.version`
-- [ ] 0.2.8 GitHub Actions: `build-r-base.yml` — build and push to `ghcr.io/your-org/pyrbmi-r-base`
-  - [ ] 0.2.8.a Trigger: weekly schedule + on change to `docker/r-validation/Dockerfile`
-  - [ ] 0.2.8.b Tag: `ghcr.io/your-org/pyrbmi-r-base:r{R_VERSION}-rbmi{RBMI_VERSION}`
-  - [ ] 0.2.8.c Cache layers: apt lists, r2u package index, R library dir
-- [ ] 0.2.9 Add `renv.lock` (R side) — pins rbmi and rstan versions used in validation
-  - [ ] 0.2.9.a Trigger `build-r-base.yml` rebuild on `renv.lock` change
+- [x] 0.2.7 Create `docker/r-validation/Dockerfile`
+  - [x] 0.2.7.a Base: `ubuntu:24.04`
+  - [x] 0.2.7.b Install r2u (CRAN-as-apt, Rocker project) — pre-built .deb binaries
+  - [x] 0.2.7.c `install2.r rbmi rstan` — seconds not minutes via apt
+  - [x] 0.2.7.d Install Python + uv + rpy2 in same image
+  - [x] 0.2.7.e Pin image with `LABEL org.opencontainers.image.version`
+- [x] 0.2.8 GitHub Actions: `build-r-base.yml` — build and push to `ghcr.io/your-org/pyrbmi-r-base`
+  - [x] 0.2.8.a Trigger: weekly schedule + on change to `docker/r-validation/Dockerfile`
+  - [x] 0.2.8.b Tag: `ghcr.io/your-org/pyrbmi-r-base:r{R_VERSION}-rbmi{RBMI_VERSION}`
+  - [x] 0.2.8.c Cache layers: apt lists, r2u package index, R library dir
+- [x] 0.2.9 Add `renv.lock` (R side) — pins rbmi and rstan versions used in validation
+  - [x] 0.2.9.a Trigger `build-r-base.yml` rebuild on `renv.lock` change
 
 #### 0.2.C R Parity Workflow — scheduled, uses pre-built image
 - [ ] 0.2.10 GitHub Actions: `validate-r.yml`
