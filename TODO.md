@@ -61,10 +61,10 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
 - [x] 0.2.12 Document R local setup in `CONTRIBUTING.md`: install via binary mirror, not CRAN default
 
 ### 0.3 Documentation Infrastructure
-- [ ] 0.3.1 Initialize MkDocs + mkdocstrings (Google-style docstrings)
-- [ ] 0.3.2 Configure `docs/` structure: API reference, User Guide, Validation Report
-- [ ] 0.3.3 Add `docs/validation/` — placeholder for R parity report (populated at v0.7.0)
-- [ ] 0.3.4 Add GitHub Pages deployment action
+- [x] 0.3.1 Initialize MkDocs + mkdocstrings (Google-style docstrings)
+- [x] 0.3.2 Configure `docs/` structure: API reference, User Guide, Validation Report
+- [x] 0.3.3 Add `docs/validation/` — placeholder for R parity report (populated at v0.7.0)
+- [x] 0.3.4 Add GitHub Pages deployment action
 
 ### 0.4 License & Legal
 - [ ] 0.4.1 Add `LICENSE` file (Apache-2.0, full text)

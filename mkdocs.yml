@@ -1,0 +1,90 @@
+site_name: pyrbmi
+site_description: Python implementation of reference-based multiple imputation for regulatory clinical trials
+site_url: https://statparity.github.io/pyrbmi
+repo_url: https://github.com/statparity/pyrbmi
+repo_name: statparity/pyrbmi
+docs_dir: docs
+
+nav:
+  - Home: index.md
+  - User Guide:
+    - Getting Started: user-guide/getting-started.md
+    - Imputation Strategies: user-guide/strategies.md
+    - API Quick Reference: user-guide/api-quick.md
+  - API Reference:
+    - pyrbmi: api/pyrbmi.md
+  - Validation:
+    - Overview: validation/index.md
+    - R Parity Report: validation/r-parity.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_category_heading: true
+            show_if_no_docstring: false
+            show_signature_annotations: true
+            separate_signature: true
+            line_length: 100
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/statparity/pyrbmi
+  version:
+    provider: mike
+
+copyright: Copyright &copy; 2024 StatParity — Apache-2.0 License

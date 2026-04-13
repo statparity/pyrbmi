@@ -48,6 +48,11 @@ dev = [
     "mypy>=1.7",
     "ruff>=0.1",
 ]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
+    "mike>=2.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/statparity/pyrbmi"
