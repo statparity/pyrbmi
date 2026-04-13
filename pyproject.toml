@@ -39,7 +39,7 @@ dependencies = [
 bayes = [
     "pymc>=5.10",
     "pytensor>=2.18",
-    "arviz>=0.16",
+    "arviz>=0.23.4",
 ]
 dev = [
     "rpy2>=3.5",
