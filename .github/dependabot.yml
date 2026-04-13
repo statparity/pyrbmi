@@ -15,6 +15,8 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
+    rebase-strategy: "auto"  # Auto-rebase when base branch changes
+    versioning-strategy: "lockfile-only"  # Only update uv.lock, not pyproject.toml bounds
     groups:
       production-dependencies:
         dependency-type: "production"
@@ -23,6 +25,10 @@ updates:
         update-types:
           - "minor"
           - "patch"
+        exclude-patterns:
+          - "pymc"      # Exclude major Bayesian deps from auto-merge
+          - "pytensor"
+          - "arviz"
       dev-dependencies:
         dependency-type: "development"
         patterns:
@@ -30,6 +36,15 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Ignore major version updates for critical scientific packages
+      # These require manual validation against R parity tests
+      - dependency-name: "numpy"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pandas"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "scipy"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -46,3 +61,4 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+    rebase-strategy: "auto"
