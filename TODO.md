@@ -19,14 +19,14 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
 ### 0.2 CI/CD Pipeline
 
 #### 0.2.A Hot Path — Python-only (every commit, no R)
-- [ ] 0.2.1 GitHub Actions: `ci.yml` — lint (ruff), typecheck (mypy), test (pytest) on push/PR
-  - [ ] 0.2.1.a No R dependency — pure Python environment only
-  - [ ] 0.2.1.b `uv sync --extra bayes` to include PyMC optional deps
-- [ ] 0.2.2 CI matrix: Python 3.11, 3.12, 3.13 × Ubuntu, macOS
-- [ ] 0.2.3 GitHub Actions: `release.yml` — build + publish to PyPI on tag `v*`
-- [ ] 0.2.4 Configure Codecov or equivalent (coverage ≥ 90% gate)
-- [ ] 0.2.5 Add Dependabot config for Python dependencies
-- [ ] 0.2.6 Add `CODEOWNERS`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
+- [x] 0.2.1 GitHub Actions: `ci.yml` — lint (ruff), typecheck (mypy), test (pytest) on push/PR
+  - [x] 0.2.1.a No R dependency — pure Python environment only
+  - [x] 0.2.1.b `uv sync --extra bayes` to include PyMC optional deps
+- [x] 0.2.2 CI matrix: Python 3.11, 3.12, 3.13 × Ubuntu, macOS
+- [x] 0.2.3 GitHub Actions: `release.yml` — build + publish to PyPI on tag `v*`
+- [x] 0.2.4 Configure Codecov or equivalent (coverage ≥ 90% gate)
+- [x] 0.2.5 Add Dependabot config for Python dependencies
+- [x] 0.2.6 Add `CODEOWNERS`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
 
 #### 0.2.B R Validation Base Image — build once, reuse forever
 > Solves: R package compilation from source taking 2-5 min per package on Linux.

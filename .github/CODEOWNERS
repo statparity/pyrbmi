@@ -1,0 +1,15 @@
+# Global owners
+* @statparity/maintainers @SHA888
+
+# Core package code
+/src/ @statparity/core-maintainers @SHA888
+
+# Documentation and metadata
+/docs/ @statparity/docs-maintainers @SHA888
+*.md @statparity/docs-maintainers @SHA888
+
+# CI/CD configuration
+/.github/ @statparity/ci-maintainers @SHA888
+
+# Release-related
+/pyproject.toml @statparity/release-maintainers @SHA888
