@@ -42,7 +42,7 @@ bayes = [
     "arviz>=0.16",
 ]
 dev = [
-    "rpy2>=3.5",
+    "rpy2>=3.6.7",
     "pytest>=7.4",
     "pytest-cov>=4.1",
     "mypy>=1.7",
