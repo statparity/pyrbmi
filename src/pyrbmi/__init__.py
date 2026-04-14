@@ -19,17 +19,22 @@ This package provides regulatory-compliant multiple imputation methods
 for clinical trials, with numerical parity to R's rbmi package.
 """
 
+from pyrbmi.covariance import CovarianceStructure
 from pyrbmi.data import RBMIDataset
 from pyrbmi.imputer import Imputer
 from pyrbmi.pool import PooledResults, pool
 from pyrbmi.strategy import Strategy
+from pyrbmi.validators import RBMIDataError, validate_columns
 
 __version__ = "0.0.1.dev0"
 
 __all__ = [
+    "CovarianceStructure",
     "RBMIDataset",
+    "RBMIDataError",
     "Imputer",
     "Strategy",
     "pool",
     "PooledResults",
+    "validate_columns",
 ]

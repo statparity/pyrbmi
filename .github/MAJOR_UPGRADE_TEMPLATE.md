@@ -66,7 +66,7 @@ To unblock: Remove from `dependabot.yml` after successful manual upgrade.
 - **R Parity Risk**: HIGH - May affect imputation draws
 - **Mitigation**: Pin to <2 until validated
 
-### pandas 3.x  
+### pandas 3.x
 - **Breaking**: NA handling, Index behavior changes
 - **R Parity Risk**: HIGH - Data structure core to analysis
 - **Mitigation**: Pin to <3 until validated

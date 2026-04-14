@@ -5,9 +5,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 import pandas as pd
+
+from pyrbmi.validators import (
+    validate_columns,
+    validate_no_duplicate_visits,
+    validate_reference_arm,
+    validate_visit_ordering,
+)
 
 
 @dataclass
@@ -50,8 +58,10 @@ class RBMIDataset:
     treatment_col: str
     visit_col: str
     outcome_col: str
-    baseline_col: str | None
-    reference_arm: str
+    baseline_col: str | None = None
+    reference_arm: str = ""
+    _treatment_encoding: dict[str, int] = field(default_factory=dict, repr=False)
+    _visit_order: list[Any] = field(default_factory=list, repr=False)
 
     @classmethod
     def from_dataframe(
@@ -81,18 +91,103 @@ class RBMIDataset:
         Raises:
             ValueError: If required columns are not found in the DataFrame.
         """
-        # Stub implementation for documentation
+        # Validate all required columns exist
         required_cols = [subject, treatment, visit, outcome]
-        missing = [c for c in required_cols if c not in df.columns]
-        if missing:
-            raise ValueError(f"Missing columns: {missing}")
+        if baseline:
+            required_cols.append(baseline)
+        validate_columns(df, required_cols)
+
+        # Validate reference arm exists in data
+        validate_reference_arm(df, treatment, reference_arm)
+
+        # Validate no duplicate (subject, visit) combinations
+        validate_no_duplicate_visits(df, subject, visit)
+
+        # Validate and store visit ordering
+        visit_order = validate_visit_ordering(df, visit)
+
+        # Create working copy
+        df_work = df.copy()
+
+        # Encode treatment arms as integer indices
+        treatment_encoding = _encode_treatment_arms(df_work, treatment, reference_arm)
 
         return cls(
-            df=df.copy(),
+            df=df_work,
             subject_col=subject,
             treatment_col=treatment,
             visit_col=visit,
             outcome_col=outcome,
             baseline_col=baseline,
             reference_arm=reference_arm,
+            _treatment_encoding=treatment_encoding,
+            _visit_order=visit_order,
         )
+
+    def get_treatment_code(self, arm: str) -> int:
+        """Get the integer code for a treatment arm.
+
+        Args:
+            arm: Treatment arm name.
+
+        Returns:
+            Integer code for the arm (reference_arm = 0).
+
+        Raises:
+            KeyError: If arm not found in encoding.
+        """
+        return self._treatment_encoding[arm]
+
+    def get_visit_index(self, visit: Any) -> int:
+        """Get the index of a visit in the ordering.
+
+        Args:
+            visit: Visit value.
+
+        Returns:
+            Index position in visit order.
+
+        Raises:
+            ValueError: If visit not found in ordering.
+        """
+        try:
+            return self._visit_order.index(visit)
+        except ValueError as e:
+            raise ValueError(f"Visit '{visit}' not found in ordering") from e
+
+
+def _encode_treatment_arms(
+    df: pd.DataFrame,
+    treatment_col: str,
+    reference_arm: str,
+) -> dict[str, int]:
+    """Encode treatment arms as integer indices.
+
+    The reference arm is always encoded as 0.
+    Other arms are encoded as 1, 2, 3, ... in sorted order.
+
+    Args:
+        df: DataFrame with treatment column.
+        treatment_col: Name of treatment column.
+        reference_arm: Name of reference treatment arm.
+
+    Returns:
+        Dictionary mapping arm names to integer codes.
+    """
+    unique_arms = sorted(df[treatment_col].unique())
+
+    if reference_arm not in unique_arms:
+        raise ValueError(f"Reference arm '{reference_arm}' not found in data")
+
+    # Build encoding: reference = 0, others sorted = 1, 2, 3, ...
+    encoding: dict[str, int] = {reference_arm: 0}
+    code = 1
+    for arm in unique_arms:
+        if arm != reference_arm:
+            encoding[arm] = code
+            code += 1
+
+    # Add encoded column to dataframe
+    df["_treatment_code"] = df[treatment_col].map(encoding)
+
+    return encoding
