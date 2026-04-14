@@ -78,21 +78,21 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
 > Goal: end-to-end working pipeline for the simplest case (MAR, continuous outcome, Bayesian MI).
 
 ### 1.1 Data Layer (`pyrbmi.data`)
-- [ ] 1.1.1 Implement `RBMIDataset` dataclass
-  - [ ] 1.1.1.a Fields: `df`, `subject_col`, `treatment_col`, `visit_col`, `outcome_col`, `baseline_col`, `reference_arm`
-  - [ ] 1.1.1.b `from_dataframe()` classmethod: validates all required columns present
-  - [ ] 1.1.1.c Validate visit ordering (categorical ordered or sortable)
-  - [ ] 1.1.1.d Validate no duplicate (subject, visit) combinations
-  - [ ] 1.1.1.e Encode treatment arms as integer indices internally
-- [ ] 1.1.2 Implement `validators.py`
-  - [ ] 1.1.2.a `validate_columns(df, required)` — raises `RBMIDataError` with clear message
-  - [ ] 1.1.2.b `validate_no_missing_baseline()` — baseline must be complete
-  - [ ] 1.1.2.c `validate_arm_labels(df, reference_arm)` — reference arm must exist in data
-- [ ] 1.1.3 Implement `CovarianceStructure` enum: `UNSTRUCTURED`, `COMPOUND_SYMMETRY`, `AR1`, `TOEPLITZ`
-- [ ] 1.1.4 Write unit tests for all validators (happy path + error cases)
-  - [ ] 1.1.4.a Test missing column detection
-  - [ ] 1.1.4.b Test duplicate visit detection
-  - [ ] 1.1.4.c Test invalid reference arm
+- [x] 1.1.1 Implement `RBMIDataset` dataclass
+  - [x] 1.1.1.a Fields: `df`, `subject_col`, `treatment_col`, `visit_col`, `outcome_col`, `baseline_col`, `reference_arm`
+  - [x] 1.1.1.b `from_dataframe()` classmethod: validates all required columns present
+  - [x] 1.1.1.c Validate visit ordering (categorical ordered or sortable)
+  - [x] 1.1.1.d Validate no duplicate (subject, visit) combinations
+  - [x] 1.1.1.e Encode treatment arms as integer indices internally
+- [x] 1.1.2 Implement `validators.py`
+  - [x] 1.1.2.a `validate_columns(df, required)` — raises `RBMIDataError` with clear message
+  - [x] 1.1.2.b `validate_reference_arm(df, treatment_col, reference_arm)` — reference arm must exist
+  - [x] 1.1.2.c `validate_no_duplicate_visits(df, subject_col, visit_col)` — detects duplicate subject-visit pairs
+- [x] 1.1.3 Implement `CovarianceStructure` enum: `UNSTRUCTURED`, `COMPOUND_SYMMETRY`, `AR1`, `TOEPLITZ`
+- [x] 1.1.4 Write unit tests for all validators (happy path + error cases)
+  - [x] 1.1.4.a Test missing column detection
+  - [x] 1.1.4.b Test duplicate visit detection
+  - [x] 1.1.4.c Test invalid reference arm
 
 ### 1.2 MMRM Base Model (`pyrbmi.models.mmrm`)
 - [ ] 1.2.1 Implement `MMRM` class
