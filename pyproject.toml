@@ -33,6 +33,7 @@ dependencies = [
     "numpy>=1.24",
     "pandas>=2.0",
     "scipy>=1.17",
+    "formulaic>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -88,6 +89,10 @@ select = [
 ignore = [
     "E501", # Line too long (handled by formatter)
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow mathematical notation (capital letters for matrices) in MMRM implementation
+"src/pyrbmi/models/mmrm.py" = ["N806"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

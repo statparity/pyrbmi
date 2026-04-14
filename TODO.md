@@ -95,11 +95,11 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
   - [x] 1.1.4.c Test invalid reference arm
 
 ### 1.2 MMRM Base Model (`pyrbmi.models.mmrm`)
-- [ ] 1.2.1 Implement `MMRM` class
-  - [ ] 1.2.1.a `__init__(covariance=UNSTRUCTURED, reml=True)`
-  - [ ] 1.2.1.b `fit(dataset)` — builds design matrix, fits REML
-  - [ ] 1.2.1.c Store: `beta_hat`, `sigma_hat`, `log_likelihood`, convergence status
-  - [ ] 1.2.1.d Raise `MMRMConvergenceError` if optimizer fails to converge
+- [x] 1.2.1 Implement `MMRM` class
+  - [x] 1.2.1.a `__init__(covariance=UNSTRUCTURED, reml=True)`
+  - [x] 1.2.1.b `fit(dataset)` — builds design matrix, fits REML
+  - [x] 1.2.1.c Store: `beta_hat`, `sigma_hat`, `log_likelihood`, convergence status
+  - [x] 1.2.1.d Raise `MMRMConvergenceError` if optimizer fails to converge
 - [ ] 1.2.2 Design matrix construction
   - [ ] 1.2.2.a Treatment × visit interaction terms
   - [ ] 1.2.2.b Baseline covariate (continuous)
