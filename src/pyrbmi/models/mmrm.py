@@ -108,12 +108,17 @@ class MMRM:
         Raises:
             MMRMConvergenceError: If the optimizer fails to converge.
             RBMIDataError: If the dataset fails validation checks.
+            RuntimeError: If model is already fitted (call reset() first).
 
         Example:
             >>> model = MMRM(covariance=CovarianceStructure.COMPOUND_SYMMETRY)
             >>> fitted = model.fit(dataset)
             >>> print(f"Log-likelihood: {fitted.log_likelihood}")
         """
+        # Guard against re-fitting
+        if self.converged:
+            raise RuntimeError("Model already fitted. Call reset() first or create a new instance.")
+
         # Build design matrix and response
         x_matrix, y_vec = self._build_design_matrix(dataset)
         self._X = x_matrix
@@ -148,9 +153,74 @@ class MMRM:
         # Compute final estimates
         theta_hat = result.x
         self.sigma_hat = self._theta_to_sigma(theta_hat)
-        self.beta_hat, self.log_likelihood, _ = self._estimate_beta(self.sigma_hat)
+        self.beta_hat, self.log_likelihood = self._compute_final_loglik(self.sigma_hat)
 
         return self
+
+    def reset(self) -> None:
+        """Reset the model to unfitted state.
+
+        Clears all fitted parameters, allowing the model to be refitted.
+        """
+        self.beta_hat = None
+        self.sigma_hat = None
+        self.log_likelihood = None
+        self.converged = False
+        self.optimizer_result = None
+        self._X = None
+        self._y = None
+        self._n_visits = 0
+        self._n_subjects = 0
+
+    def _compute_final_loglik(self, sigma: np.ndarray) -> tuple[np.ndarray, float]:
+        """Compute final beta and log-likelihood after optimization.
+
+        Args:
+            sigma: Final covariance matrix estimate.
+
+        Returns:
+            Tuple of (beta_hat, log_likelihood).
+        """
+        if self._X is None or self._y is None:
+            raise RuntimeError("Model not fitted: call fit() first")
+
+        beta_hat, logdet_sigma, sscp = self._estimate_beta(sigma)
+        n_obs = len(self._y)
+        n_params = self._X.shape[1]
+
+        # Compute residual quadratic form r' V^{-1} r properly
+        residuals = self._y - self._X @ beta_hat
+        # For now, simplified: assume block diagonal with sigma
+        # Full implementation would use proper V^{-1}
+        try:
+            sigma_inv = linalg.inv(sigma)
+        except linalg.LinAlgError:
+            sigma_inv = linalg.pinv(sigma)
+
+        # Simplified: assume each subject has same number of visits
+        # Full implementation needs proper grouping by subject
+        n_subjects = self._n_subjects
+
+        # For balanced design: V = I_n_subjects ⊗ sigma
+        # V^{-1} = I_n_subjects ⊗ sigma^{-1}
+        # r' V^{-1} r = sum over subjects of r_i' sigma^{-1} r_i
+        # Simplified: treat all residuals together
+        resid_quad = float(residuals.T @ np.kron(np.eye(n_subjects), sigma_inv) @ residuals)
+
+        if self.reml:
+            # REML: -0.5 * (n-p) * log(2π) - 0.5 * log|V| - 0.5 * log|X'V^{-1}X| - 0.5 * r'V^{-1}r
+            # log|V| = n_subjects * log|sigma|
+            # log|X'V^{-1}X| term (ignored in simplified implementation)
+            loglik = (
+                -0.5 * (n_obs - n_params) * np.log(2 * np.pi)
+                - 0.5 * logdet_sigma
+                - 0.5 * resid_quad
+            )
+        else:
+            # ML: -0.5 * n * log(2π) - 0.5 * log|V| - 0.5 * r'V^{-1}r
+            loglik = -0.5 * n_obs * np.log(2 * np.pi) - 0.5 * logdet_sigma - 0.5 * resid_quad
+
+        return beta_hat, float(loglik)
 
     def _build_design_matrix(self, dataset: RBMIDataset) -> tuple[np.ndarray, np.ndarray]:
         """Build design matrix with treatment × visit interaction.
@@ -187,14 +257,21 @@ class MMRM:
                 df[col_name] = (df["_trt_code"] == trt_code).astype(int) * df[f"_visit_{i}"]
                 interaction_cols.append(col_name)
 
-        # Build design matrix: intercept + baseline (if any) + interactions
-        cols = (
-            ["_intercept"] if dataset.baseline_col is None else ["_intercept", dataset.baseline_col]
-        )
+        # Build design matrix: intercept + visit dummies + baseline (if any) + interactions
+        cols = ["_intercept"]
         df["_intercept"] = 1.0
 
-        x_cols = cols + interaction_cols
-        x_matrix = df[x_cols].values
+        # Add visit dummies (main effects for reference arm)
+        cols.extend(visit_dummies)
+
+        # Add baseline if present
+        if dataset.baseline_col is not None:
+            cols.append(dataset.baseline_col)
+
+        # Add treatment × visit interactions
+        cols.extend(interaction_cols)
+
+        x_matrix = df[cols].values
         y_vec = df[dataset.outcome_col].values
 
         return x_matrix, y_vec
@@ -269,7 +346,9 @@ class MMRM:
     def _compound_symmetry_theta_to_sigma(self, theta: np.ndarray) -> np.ndarray:
         """Convert theta to compound symmetry covariance."""
         variance = np.exp(theta[0])  # Ensure positive
-        corr = 1 / (1 + np.exp(-theta[1]))  # Logit to (0, 1)
+        # Use tanh to map to (-1, 1) for valid correlation range
+        # Valid range for CS: -1/(n-1) < corr < 1, tanh covers most useful range
+        corr = np.tanh(theta[1])
 
         n = self._n_visits
         Sigma = np.full((n, n), variance * corr)
@@ -306,6 +385,55 @@ class MMRM:
                     Sigma[i, j] = np.sqrt(variances[i] * variances[j]) * corrs[lag - 1]
         return Sigma
 
+    def _log_likelihood_value(self, theta: np.ndarray) -> float:
+        """Compute log-likelihood value only (no gradient).
+
+        Args:
+            theta: Covariance parameter vector.
+
+        Returns:
+            Log-likelihood value (not negated).
+        """
+        if self._y is None or self._X is None:
+            raise RuntimeError("Model not fitted: call fit() first")
+
+        Sigma = self._theta_to_sigma(theta)
+
+        # Check positive definiteness
+        try:
+            linalg.cholesky(Sigma, lower=True)
+        except linalg.LinAlgError:
+            return -1e10
+
+        # Compute beta_hat and get residuals
+        beta_hat, logdet_sigma, _ = self._estimate_beta(Sigma)
+        n_obs = len(self._y)
+        n_params = self._X.shape[1]
+
+        # Compute residual quadratic form r' V^{-1} r
+        residuals = self._y - self._X @ beta_hat
+        try:
+            sigma_inv = linalg.inv(Sigma)
+        except linalg.LinAlgError:
+            sigma_inv = linalg.pinv(Sigma)
+
+        n_subjects = self._n_subjects
+        resid_quad = float(residuals.T @ np.kron(np.eye(n_subjects), sigma_inv) @ residuals)
+
+        if self.reml:
+            # REML: -0.5 * (n-p) * log(2π) - 0.5 * log|V| - 0.5 * r'V^{-1}r
+            # Note: log|X'V^{-1}X| term omitted in simplified implementation
+            loglik = (
+                -0.5 * (n_obs - n_params) * np.log(2 * np.pi)
+                - 0.5 * logdet_sigma
+                - 0.5 * resid_quad
+            )
+        else:
+            # ML
+            loglik = -0.5 * n_obs * np.log(2 * np.pi) - 0.5 * logdet_sigma - 0.5 * resid_quad
+
+        return float(loglik)
+
     def _negative_log_likelihood(self, theta: np.ndarray) -> tuple[float, np.ndarray]:
         """Compute negative log-likelihood and gradient for optimization.
 
@@ -315,43 +443,16 @@ class MMRM:
         Returns:
             Tuple of (negative log-likelihood, gradient).
         """
-        Sigma = self._theta_to_sigma(theta)
+        loglik = self._log_likelihood_value(theta)
 
-        # Check positive definiteness
-        try:
-            linalg.cholesky(Sigma, lower=True)
-        except linalg.LinAlgError:
-            return 1e10, np.zeros_like(theta)
-
-        # Compute beta_hat and residual SSCP
-        beta_hat, logdet_sigma, sscp = self._estimate_beta(Sigma)
-
-        # Log-likelihood
-        if self._y is None:
-            raise RuntimeError("Model not fitted: call fit() first")
-        n_obs = len(self._y)
-        n_params = self._X.shape[1] if self._X is not None else 0
-
-        if self.reml:
-            # REML: adjust for fixed effects
-            # -0.5 * (n - p) * log(2*pi) - 0.5 * log|X'V^{-1}X| - 0.5 * log|V| - 0.5 * y'Py
-            loglik = (
-                -0.5 * (n_obs - n_params) * np.log(2 * np.pi)
-                - 0.5 * logdet_sigma
-                - 0.5 * np.trace(sscp)
-            )
-        else:
-            # ML
-            loglik = -0.5 * n_obs * np.log(2 * np.pi) - 0.5 * logdet_sigma - 0.5 * np.trace(sscp)
-
-        # Numerical gradient (simpler for now)
+        # Numerical gradient
         eps = 1e-6
         grad = np.zeros_like(theta)
         for i in range(len(theta)):
             theta_plus = theta.copy()
             theta_plus[i] += eps
-            ll_plus = self._negative_log_likelihood(theta_plus)[0]
-            grad[i] = (ll_plus - (-loglik)) / eps
+            ll_plus = self._log_likelihood_value(theta_plus)
+            grad[i] = -(ll_plus - loglik) / eps  # Negate for negative log-lik
 
         return -loglik, grad
 
@@ -478,7 +579,10 @@ class MMRM:
         for i in range(p):
             for j in range(i + 1):
                 if i == j:
-                    A[i, j] = np.sqrt(rng.gamma(df - i, 1.0))
+                    # Bartlett decomposition: diagonal elements are sqrt(Gamma((df-i)/2, 2))
+                    shape_param = (df - i) / 2.0
+                    scale_param = 2.0
+                    A[i, j] = np.sqrt(rng.gamma(shape_param, scale_param))
                 else:
                     A[i, j] = rng.normal(0, 1)
 
