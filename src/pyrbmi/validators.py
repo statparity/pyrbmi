@@ -96,6 +96,43 @@ def validate_no_duplicate_visits(df: pd.DataFrame, subject_col: str, visit_col: 
         raise RBMIDataError(msg)
 
 
+def validate_no_missing_baseline(df: pd.DataFrame, subject_col: str, baseline_col: str) -> None:
+    """Validate that baseline values are complete (no missing values per subject).
+
+    Each subject should have exactly one baseline value and it must not be NaN.
+
+    Args:
+        df: DataFrame containing subject and baseline columns.
+        subject_col: Name of subject identifier column.
+        baseline_col: Name of baseline column to validate.
+
+    Raises:
+        RBMIDataError: If any subject has missing baseline value.
+
+    Example:
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({
+        ...     "subj": ["S1", "S1", "S2", "S2"],
+        ...     "base": [10.0, 10.0, 20.0, 20.0],
+        ... })
+        >>> validate_no_missing_baseline(df, "subj", "base")  # passes
+        >>> df2 = pd.DataFrame({
+        ...     "subj": ["S1", "S1", "S2", "S2"],
+        ...     "base": [None, None, 20.0, 20.0],  # S1 missing baseline
+        ... })
+        >>> validate_no_missing_baseline(df2, "subj", "base")  # raises RBMIDataError
+    """
+    # Check for any NaN values in baseline column per subject
+    nan_by_subject = df.groupby(subject_col)[baseline_col].apply(lambda x: x.isna().all())
+    subjects_with_nan = nan_by_subject[nan_by_subject].index.tolist()
+
+    if subjects_with_nan:
+        msg = f"Missing baseline values for subjects: {subjects_with_nan[:5]}"
+        if len(subjects_with_nan) > 5:
+            msg += f" (and {len(subjects_with_nan) - 5} more)"
+        raise RBMIDataError(msg)
+
+
 def validate_visit_ordering(df: pd.DataFrame, visit_col: str) -> list[Any]:
     """Validate and return visit ordering.
 
@@ -121,7 +158,7 @@ def validate_visit_ordering(df: pd.DataFrame, visit_col: str) -> list[Any]:
     visit_series = df[visit_col]
 
     # Check if categorical with ordering
-    if pd.api.types.is_categorical_dtype(visit_series):
+    if isinstance(visit_series.dtype, pd.CategoricalDtype):
         if visit_series.cat.ordered:
             return list(visit_series.cat.categories)
         # Categorical but not ordered - convert to sorted unique

@@ -11,6 +11,7 @@ from pyrbmi.validators import (
     RBMIDataError,
     validate_columns,
     validate_no_duplicate_visits,
+    validate_no_missing_baseline,
     validate_reference_arm,
     validate_visit_ordering,
 )
@@ -161,3 +162,83 @@ class TestValidateVisitOrdering:
         result = validate_visit_ordering(df, "visit")
         assert result == ["V1", "V2", "V3"]
         assert len(result) == 3
+
+
+class TestValidateNoMissingBaseline:
+    """Tests for validate_no_missing_baseline function."""
+
+    def test_happy_path_complete_baseline(self) -> None:
+        """Test validation passes when all subjects have baseline values."""
+        df = pd.DataFrame(
+            {
+                "subj": ["S1", "S1", "S2", "S2"],
+                "base": [10.0, 10.0, 20.0, 20.0],
+            }
+        )
+        # Should not raise
+        validate_no_missing_baseline(df, "subj", "base")
+
+    def test_error_when_baseline_missing_for_subject(self) -> None:
+        """Test RBMIDataError raised when subject has all NaN baseline."""
+        df = pd.DataFrame(
+            {
+                "subj": ["S1", "S1", "S2", "S2"],
+                "base": [None, None, 20.0, 20.0],  # S1 missing baseline
+            }
+        )
+        with pytest.raises(RBMIDataError, match="Missing baseline values for subjects"):
+            validate_no_missing_baseline(df, "subj", "base")
+
+    def test_error_message_lists_problematic_subjects(self) -> None:
+        """Test error message lists subjects with missing baseline."""
+        df = pd.DataFrame(
+            {
+                "subj": ["S1", "S1", "S2", "S2", "S3", "S3"],
+                "base": [None, None, None, None, 30.0, 30.0],  # S1, S2 missing
+            }
+        )
+        with pytest.raises(RBMIDataError) as exc_info:
+            validate_no_missing_baseline(df, "subj", "base")
+        assert "S1" in str(exc_info.value)
+        assert "S2" in str(exc_info.value)
+
+
+class TestRBMIDatasetIntegration:
+    """Integration tests for RBMIDataset validation pipeline."""
+
+    def test_empty_dataframe_raises_error(self) -> None:
+        """Test that empty DataFrame raises RBMIDataError."""
+        from pyrbmi.data import RBMIDataset
+
+        df = pd.DataFrame()
+        with pytest.raises(RBMIDataError, match="DataFrame is empty"):
+            RBMIDataset.from_dataframe(
+                df,
+                subject="subj",
+                treatment="trt",
+                visit="vis",
+                outcome="out",
+                reference_arm="A",
+            )
+
+    def test_nan_in_critical_column_raises_error(self) -> None:
+        """Test that NaN values in critical columns raise RBMIDataError."""
+        from pyrbmi.data import RBMIDataset
+
+        df = pd.DataFrame(
+            {
+                "subj": ["S1", None, "S2"],
+                "trt": ["A", "A", "B"],
+                "vis": ["V1", "V2", "V1"],
+                "out": [1.0, 2.0, 3.0],
+            }
+        )
+        with pytest.raises(RBMIDataError, match="contains NaN values"):
+            RBMIDataset.from_dataframe(
+                df,
+                subject="subj",
+                treatment="trt",
+                visit="vis",
+                outcome="out",
+                reference_arm="A",
+            )

@@ -24,7 +24,7 @@ from pyrbmi.data import RBMIDataset
 from pyrbmi.imputer import Imputer
 from pyrbmi.pool import PooledResults, pool
 from pyrbmi.strategy import Strategy
-from pyrbmi.validators import RBMIDataError, validate_columns
+from pyrbmi.validators import RBMIDataError, validate_columns, validate_no_missing_baseline
 
 __version__ = "0.0.1.dev0"
 
@@ -37,4 +37,5 @@ __all__ = [
     "pool",
     "PooledResults",
     "validate_columns",
+    "validate_no_missing_baseline",
 ]

@@ -11,8 +11,10 @@ from typing import Any
 import pandas as pd
 
 from pyrbmi.validators import (
+    RBMIDataError,
     validate_columns,
     validate_no_duplicate_visits,
+    validate_no_missing_baseline,
     validate_reference_arm,
     validate_visit_ordering,
 )
@@ -91,11 +93,22 @@ class RBMIDataset:
         Raises:
             ValueError: If required columns are not found in the DataFrame.
         """
+        # Validate DataFrame is not empty
+        if df.empty:
+            raise RBMIDataError("DataFrame is empty")
+
         # Validate all required columns exist
         required_cols = [subject, treatment, visit, outcome]
-        if baseline:
+        if baseline is not None:
             required_cols.append(baseline)
         validate_columns(df, required_cols)
+
+        # Validate no NaN values in critical columns
+        for col in [subject, treatment, visit, outcome]:
+            if df[col].isna().any():
+                raise RBMIDataError(f"Column '{col}' contains NaN values")
+        if baseline is not None and df[baseline].isna().any():
+            raise RBMIDataError(f"Baseline column '{baseline}' contains NaN values")
 
         # Validate reference arm exists in data
         validate_reference_arm(df, treatment, reference_arm)
@@ -111,6 +124,10 @@ class RBMIDataset:
 
         # Encode treatment arms as integer indices
         treatment_encoding = _encode_treatment_arms(df_work, treatment, reference_arm)
+
+        # Validate baseline completeness if provided
+        if baseline is not None:
+            validate_no_missing_baseline(df_work, subject, baseline)
 
         return cls(
             df=df_work,
@@ -176,8 +193,7 @@ def _encode_treatment_arms(
     """
     unique_arms = sorted(df[treatment_col].unique())
 
-    if reference_arm not in unique_arms:
-        raise ValueError(f"Reference arm '{reference_arm}' not found in data")
+    # Note: reference_arm validation already done in validate_reference_arm()
 
     # Build encoding: reference = 0, others sorted = 1, 2, 3, ...
     encoding: dict[str, int] = {reference_arm: 0}
@@ -187,7 +203,12 @@ def _encode_treatment_arms(
             encoding[arm] = code
             code += 1
 
-    # Add encoded column to dataframe
-    df["_treatment_code"] = df[treatment_col].map(encoding)
+    # Add encoded column to dataframe using unique internal name
+    internal_col = f"_pyrbmi_treatment_code_{treatment_col}"
+    if internal_col in df.columns:
+        raise RBMIDataError(
+            f"Reserved internal column name '{internal_col}' already exists in DataFrame"
+        )
+    df[internal_col] = df[treatment_col].map(encoding)
 
     return encoding
