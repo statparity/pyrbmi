@@ -17,8 +17,17 @@ from scipy import linalg, optimize
 
 from pyrbmi.covariance import CovarianceStructure
 
+# Import formulaic at module level for type checking
+try:
+    from formulaic import Formula
+except ImportError:
+    Formula = None
+
 if TYPE_CHECKING:
     from pyrbmi.data import RBMIDataset
+    from pyrbmi.validators import RBMIDataError
+else:
+    from pyrbmi.validators import RBMIDataError
 
 
 class MMRMConvergenceError(RuntimeError):
@@ -46,11 +55,16 @@ class MMRM:
     The MMRM model analyzes longitudinal continuous outcomes while accounting
     for within-subject correlation using a structured covariance matrix.
     This implementation supports REML estimation and multiple covariance
-    structures.
+    structures, with flexible design matrix specification via formulas.
 
     Attributes:
         covariance: Covariance structure for repeated measures.
         reml: Whether to use REML (True) or ML (False) estimation.
+        formula: Optional formula string for design matrix. If None, uses
+            default treatment × visit interaction with optional baseline
+            and additional covariates.
+        additional_covariates: List of additional covariate column names to
+            include in the design matrix (ignored if formula is provided).
         beta_hat: Estimated fixed effects coefficients (populated after fit).
         sigma_hat: Estimated covariance matrix (populated after fit).
         log_likelihood: REML or ML log-likelihood (populated after fit).
@@ -70,14 +84,20 @@ class MMRM:
         ...     df, subject="subject", treatment="treatment",
         ...     visit="visit", outcome="outcome", reference_arm="Placebo"
         ... )
+        >>> # Default: treatment × visit interaction
         >>> model = MMRM(covariance=CovarianceStructure.UNSTRUCTURED, reml=True)
         >>> model.fit(ds)
         >>> print(f"Beta: {model.beta_hat}")
         >>> print(f"Converged: {model.converged}")
+        >>>
+        >>> # Custom formula
+        >>> model2 = MMRM(formula="outcome ~ treatment * visit + age")
     """
 
     covariance: CovarianceStructure = CovarianceStructure.UNSTRUCTURED
     reml: bool = True
+    formula: str | None = None
+    additional_covariates: list[str] = field(default_factory=list)
 
     # Fitted attributes (populated after fit())
     beta_hat: np.ndarray | None = field(default=None, repr=False)
@@ -91,6 +111,7 @@ class MMRM:
     _y: np.ndarray | None = field(default=None, repr=False)  # Response vector
     _n_visits: int = field(default=0, repr=False)
     _n_subjects: int = field(default=0, repr=False)
+    _feature_names: list[str] = field(default_factory=list, repr=False)
 
     def fit(self, dataset: RBMIDataset) -> MMRM:
         """Fit the MMRM model to the dataset.
@@ -171,6 +192,7 @@ class MMRM:
         self._y = None
         self._n_visits = 0
         self._n_subjects = 0
+        self._feature_names = []
 
     def _compute_final_loglik(self, sigma: np.ndarray) -> tuple[np.ndarray, float]:
         """Compute final beta and log-likelihood after optimization.
@@ -225,10 +247,10 @@ class MMRM:
     def _build_design_matrix(self, dataset: RBMIDataset) -> tuple[np.ndarray, np.ndarray]:
         """Build design matrix with treatment × visit interaction.
 
-        Creates the design matrix X with:
-        - Intercept
-        - Treatment × visit interaction terms
-        - Baseline covariate (if present)
+        Creates the design matrix X using either:
+        1. A custom formula (if self.formula is provided) using formulaic
+        2. Default: intercept + visit dummies + baseline + treatment×visit interactions
+           + additional covariates
 
         Args:
             dataset: The RBMIDataset instance.
@@ -238,6 +260,21 @@ class MMRM:
         """
         df = dataset.df.copy()
 
+        # If formula is provided, use formulaic for parsing
+        if self.formula is not None:
+            if Formula is None:
+                raise ImportError(
+                    "formulaic is required for custom formulas. "
+                    "Install with: pip install formulaic>=1.0"
+                )
+
+            # Parse formula using formulaic
+            formula_obj = Formula(self.formula)
+            y, X = formula_obj.get_model_matrix(df)
+            self._feature_names = list(X.model_spec.column_names)
+            return np.asarray(X), np.asarray(y)
+
+        # Default: build design matrix manually with treatment × visit interaction
         # Get treatment codes
         df["_trt_code"] = df[dataset.treatment_col].map(dataset._treatment_encoding)
 
@@ -257,20 +294,27 @@ class MMRM:
                 df[col_name] = (df["_trt_code"] == trt_code).astype(int) * df[f"_visit_{i}"]
                 interaction_cols.append(col_name)
 
-        # Build design matrix: intercept + visit dummies + baseline (if any) + interactions
+        # Build design matrix: intercept + visit dummies + baseline + additional + interactions
         cols = ["_intercept"]
         df["_intercept"] = 1.0
 
         # Add visit dummies (main effects for reference arm)
         cols.extend(visit_dummies)
 
-        # Add baseline if present
+        # Add baseline covariate if present (continuous)
         if dataset.baseline_col is not None:
             cols.append(dataset.baseline_col)
+
+        # Add additional covariates (user-configurable)
+        for cov_col in self.additional_covariates:
+            if cov_col not in df.columns:
+                raise RBMIDataError(f"Additional covariate '{cov_col}' not found in dataset")
+            cols.append(cov_col)
 
         # Add treatment × visit interactions
         cols.extend(interaction_cols)
 
+        self._feature_names = cols
         x_matrix = df[cols].values
         y_vec = df[dataset.outcome_col].values
 

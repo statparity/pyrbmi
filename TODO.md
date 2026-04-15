@@ -100,11 +100,11 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
   - [x] 1.2.1.b `fit(dataset)` — builds design matrix, fits REML
   - [x] 1.2.1.c Store: `beta_hat`, `sigma_hat`, `log_likelihood`, convergence status
   - [x] 1.2.1.d Raise `MMRMConvergenceError` if optimizer fails to converge
-- [ ] 1.2.2 Design matrix construction
-  - [ ] 1.2.2.a Treatment × visit interaction terms
-  - [ ] 1.2.2.b Baseline covariate (continuous)
-  - [ ] 1.2.2.c Configurable additional covariates
-  - [ ] 1.2.2.d Use `formulaic` for formula parsing
+- [x] 1.2.2 Design matrix construction
+  - [x] 1.2.2.a Treatment × visit interaction terms
+  - [x] 1.2.2.b Baseline covariate (continuous)
+  - [x] 1.2.2.c Configurable additional covariates
+  - [x] 1.2.2.d Use `formulaic` for formula parsing
 - [ ] 1.2.3 Unstructured covariance parameterization
   - [ ] 1.2.3.a Cholesky parameterization for positive-definiteness
   - [ ] 1.2.3.b REML log-likelihood implementation
