@@ -270,8 +270,15 @@ class MMRM:
 
             # Parse formula using formulaic
             formula_obj = Formula(self.formula)
-            y, X = formula_obj.get_model_matrix(df)
+            matrices = formula_obj.get_model_matrix(df)
+
+            # formulaic returns ModelMatrices with .lhs (y) and .rhs (X) attributes
+            X = matrices.rhs
+            y = matrices.lhs
+
+            # Extract feature names before converting to numpy
             self._feature_names = list(X.model_spec.column_names)
+
             return np.asarray(X), np.asarray(y)
 
         # Default: build design matrix manually with treatment × visit interaction
@@ -306,9 +313,14 @@ class MMRM:
             cols.append(dataset.baseline_col)
 
         # Add additional covariates (user-configurable)
+        # Skip any that are already in cols (e.g., baseline_col overlap)
         for cov_col in self.additional_covariates:
             if cov_col not in df.columns:
                 raise RBMIDataError(f"Additional covariate '{cov_col}' not found in dataset")
+            if cov_col in cols:
+                raise RBMIDataError(
+                    f"Additional covariate '{cov_col}' duplicates a column already in the design matrix"
+                )
             cols.append(cov_col)
 
         # Add treatment × visit interactions
@@ -319,6 +331,19 @@ class MMRM:
         y_vec = df[dataset.outcome_col].values
 
         return x_matrix, y_vec
+
+    def get_feature_names(self) -> list[str]:
+        """Return the names of features in the design matrix.
+
+        Returns:
+            List of feature/column names corresponding to beta_hat coefficients.
+
+        Raises:
+            RuntimeError: If the model has not been fitted.
+        """
+        if not self.converged:
+            raise RuntimeError("Model must be fitted before getting feature names")
+        return self._feature_names.copy()
 
     def _init_covariance_params(self) -> np.ndarray:
         """Initialize covariance parameters for optimization.
