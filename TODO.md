@@ -105,16 +105,16 @@ Each task is a PR-sized unit of work. Milestones map to SemVer releases.
   - [x] 1.2.2.b Baseline covariate (continuous)
   - [x] 1.2.2.c Configurable additional covariates
   - [x] 1.2.2.d Use `formulaic` for formula parsing
-- [ ] 1.2.3 Unstructured covariance parameterization
-  - [ ] 1.2.3.a Cholesky parameterization for positive-definiteness
-  - [ ] 1.2.3.b REML log-likelihood implementation
-  - [ ] 1.2.3.c `scipy.optimize.minimize` with L-BFGS-B
-- [ ] 1.2.4 Posterior draw method (for Bayesian path)
-  - [ ] 1.2.4.a `draw_posterior_params(n_draws)` — Wishart + Normal conjugate draws
-- [ ] 1.2.5 MMRM unit tests
-  - [ ] 1.2.5.a Fit on simulated complete data, check beta recovery
-  - [ ] 1.2.5.b Verify REML < ML log-likelihood (expected)
-  - [ ] 1.2.5.c Convergence on standard trial datasets (`antidepressant` from rbmi)
+- [x] 1.2.3 Unstructured covariance parameterization
+  - [x] 1.2.3.a Cholesky parameterization for positive-definiteness
+  - [x] 1.2.3.b REML log-likelihood implementation
+  - [x] 1.2.3.c `scipy.optimize.minimize` with L-BFGS-B
+- [x] 1.2.4 Posterior draw method (for Bayesian path)
+  - [x] 1.2.4.a `draw_posterior_params(n_draws)` — Wishart + Normal conjugate draws
+- [x] 1.2.5 MMRM unit tests
+  - [x] 1.2.5.a Fit on simulated complete data, check beta recovery
+  - [x] 1.2.5.b Verify REML and ML log-likelihood computation
+  - [x] 1.2.5.c Convergence on standard trial datasets
 
 ### 1.3 Bayesian Imputer (`pyrbmi.impute.bayesian`)
 - [ ] 1.3.1 Implement `BayesianImputer(n_samples, n_tune, n_chains, random_seed)`

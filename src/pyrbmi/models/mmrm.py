@@ -566,7 +566,7 @@ class MMRM:
             beta_hat = linalg.lstsq(xt_sinv_x, xt_sinv_y)[0]
 
         # Compute log|S| and residual SSCP
-        sign, logdet = linalg.slogdet(sigma)
+        sign, logdet = np.linalg.slogdet(sigma)
         logdet_sigma = float(n_subjects * logdet) if sign > 0 else 0.0
 
         residuals = y - X @ beta_hat
