@@ -133,11 +133,33 @@ def validate_no_missing_baseline(df: pd.DataFrame, subject_col: str, baseline_co
         raise RBMIDataError(msg)
 
 
+def _natsort_key(val: Any) -> list[str | int]:
+    """Generate natural sort key for visit values.
+
+    Splits strings into numeric and non-numeric parts for proper ordering.
+    E.g., 'Week 10' sorts after 'Week 4', not before 'Week 2'.
+    """
+    import re
+
+    if not isinstance(val, str):
+        return [str(val)]
+
+    # Split into numeric and non-numeric parts
+    parts = re.split(r"(\d+)", val)
+    result: list[str | int] = []
+    for part in parts:
+        if part.isdigit():
+            result.append(int(part))
+        else:
+            result.append(part.lower())
+    return result
+
+
 def validate_visit_ordering(df: pd.DataFrame, visit_col: str) -> list[Any]:
     """Validate and return visit ordering.
 
     If visit column is categorical with ordered=True, uses that ordering.
-    Otherwise, sorts unique visit values naturally.
+    Otherwise, sorts unique visit values naturally (handles "Week 4" vs "Week 10").
 
     Args:
         df: DataFrame containing visit column.
@@ -154,6 +176,9 @@ def validate_visit_ordering(df: pd.DataFrame, visit_col: str) -> list[Any]:
         >>> df = pd.DataFrame({"visit": ["Week 4", "Week 0", "Week 8"]})
         >>> validate_visit_ordering(df, "visit")
         ['Week 0', 'Week 4', 'Week 8']
+        >>> df2 = pd.DataFrame({"visit": ["Week 4", "Week 0", "Week 10"]})
+        >>> validate_visit_ordering(df2, "visit")
+        ['Week 0', 'Week 4', 'Week 10']  # Natural sort, not lexicographic
     """
     visit_series = df[visit_col]
 
@@ -166,7 +191,7 @@ def validate_visit_ordering(df: pd.DataFrame, visit_col: str) -> list[Any]:
 
     # Try to sort naturally
     try:
-        visits = sorted(visit_series.unique())
+        visits = sorted(visit_series.unique(), key=_natsort_key)
         return list(visits)
     except TypeError as e:
         msg = f"Cannot determine visit ordering for column '{visit_col}': {e}"

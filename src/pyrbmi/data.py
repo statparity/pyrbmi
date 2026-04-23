@@ -172,6 +172,20 @@ class RBMIDataset:
         except ValueError as e:
             raise ValueError(f"Visit '{visit}' not found in ordering") from e
 
+    def _get_subject_groups(self) -> list[tuple[str, pd.DataFrame]]:
+        """Group data by subject for per-subject computations.
+
+        Returns:
+            List of (subject_id, subject_df) tuples.
+            Each subject_df contains rows for that subject with visits in canonical order.
+        """
+        # Sort by subject and visit order to ensure canonical ordering
+        df_sorted = self.df.sort_values(
+            by=[self.subject_col, self.visit_col],
+            key=lambda col: col.map(self._visit_order.index) if col.name == self.visit_col else col,
+        )
+        return list(df_sorted.groupby(self.subject_col, sort=False))
+
 
 def _encode_treatment_arms(
     df: pd.DataFrame,

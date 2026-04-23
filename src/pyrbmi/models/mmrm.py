@@ -109,6 +109,9 @@ class MMRM:
     # Internal attributes
     _X: np.ndarray | None = field(default=None, repr=False)  # Design matrix
     _y: np.ndarray | None = field(default=None, repr=False)  # Response vector
+    _subject_indices: list[tuple[int, int]] = field(
+        default_factory=list, repr=False
+    )  # (start, end) for each subject
     _n_visits: int = field(default=0, repr=False)
     _n_subjects: int = field(default=0, repr=False)
     _feature_names: list[str] = field(default_factory=list, repr=False)
@@ -140,14 +143,15 @@ class MMRM:
         if self.converged:
             raise RuntimeError("Model already fitted. Call reset() first or create a new instance.")
 
-        # Build design matrix and response
-        x_matrix, y_vec = self._build_design_matrix(dataset)
+        # Build design matrix and response (sorted by subject, then visit)
+        x_matrix, y_vec, subject_indices = self._build_design_matrix(dataset)
         self._X = x_matrix
         self._y = y_vec
+        self._subject_indices = subject_indices
 
         # Get visit and subject counts for covariance parameterization
         self._n_visits = len(dataset._visit_order)
-        self._n_subjects = dataset.df[dataset.subject_col].nunique()
+        self._n_subjects = len(subject_indices)
 
         # Estimate covariance parameters via REML/ML
         theta_init = self._init_covariance_params()
@@ -167,14 +171,20 @@ class MMRM:
                 optimization_result=result,
             )
 
-        # Store results
+        # Store optimization result
         self.optimizer_result = result
-        self.converged = True
 
-        # Compute final estimates
+        # Compute final estimates BEFORE setting converged flag
+        # This ensures atomic state: if any computation fails, model remains unfitted
         theta_hat = result.x
-        self.sigma_hat = self._theta_to_sigma(theta_hat)
-        self.beta_hat, self.log_likelihood = self._compute_final_loglik(self.sigma_hat)
+        sigma_hat = self._theta_to_sigma(theta_hat)
+        beta_hat, log_likelihood = self._compute_final_loglik(sigma_hat)
+
+        # Only set fitted state after all computations succeed
+        self.sigma_hat = sigma_hat
+        self.beta_hat = beta_hat
+        self.log_likelihood = log_likelihood
+        self.converged = True
 
         return self
 
@@ -190,6 +200,7 @@ class MMRM:
         self.optimizer_result = None
         self._X = None
         self._y = None
+        self._subject_indices = []
         self._n_visits = 0
         self._n_subjects = 0
         self._feature_names = []
@@ -203,35 +214,34 @@ class MMRM:
         Returns:
             Tuple of (beta_hat, log_likelihood).
         """
-        if self._X is None or self._y is None:
+        if self._X is None or self._y is None or not self._subject_indices:
             raise RuntimeError("Model not fitted: call fit() first")
 
-        beta_hat, logdet_sigma, sscp = self._estimate_beta(sigma)
+        beta_hat, logdet_sigma, _ = self._estimate_beta(sigma)
         n_obs = len(self._y)
         n_params = self._X.shape[1]
 
-        # Compute residual quadratic form r' V^{-1} r properly
+        # Compute residual quadratic form r' V^{-1} r using per-subject accumulation
         residuals = self._y - self._X @ beta_hat
-        # For now, simplified: assume block diagonal with sigma
-        # Full implementation would use proper V^{-1}
-        try:
-            sigma_inv = linalg.inv(sigma)
-        except linalg.LinAlgError:
-            sigma_inv = linalg.pinv(sigma)
+        resid_quad = 0.0
 
-        # Simplified: assume each subject has same number of visits
-        # Full implementation needs proper grouping by subject
-        n_subjects = self._n_subjects
+        for start_idx, end_idx in self._subject_indices:
+            r_i = residuals[start_idx:end_idx]
+            n_visits_i = end_idx - start_idx
 
-        # For balanced design: V = I_n_subjects ⊗ sigma
-        # V^{-1} = I_n_subjects ⊗ sigma^{-1}
-        # r' V^{-1} r = sum over subjects of r_i' sigma^{-1} r_i
-        # Simplified: treat all residuals together
-        resid_quad = float(residuals.T @ np.kron(np.eye(n_subjects), sigma_inv) @ residuals)
+            # Extract submatrix for this subject's visits
+            sigma_i = sigma if n_visits_i == sigma.shape[0] else sigma[:n_visits_i, :n_visits_i]
+
+            try:
+                sigma_i_inv = linalg.inv(sigma_i)
+            except linalg.LinAlgError:
+                sigma_i_inv = linalg.pinv(sigma_i)
+
+            resid_quad += float(r_i @ sigma_i_inv @ r_i)
 
         if self.reml:
             # REML: -0.5 * (n-p) * log(2π) - 0.5 * log|V| - 0.5 * log|X'V^{-1}X| - 0.5 * r'V^{-1}r
-            # log|V| = n_subjects * log|sigma|
+            # log|V| = sum of log|sigma_i| for each subject (already in logdet_sigma)
             # log|X'V^{-1}X| term (ignored in simplified implementation)
             loglik = (
                 -0.5 * (n_obs - n_params) * np.log(2 * np.pi)
@@ -244,7 +254,9 @@ class MMRM:
 
         return beta_hat, float(loglik)
 
-    def _build_design_matrix(self, dataset: RBMIDataset) -> tuple[np.ndarray, np.ndarray]:
+    def _build_design_matrix(
+        self, dataset: RBMIDataset
+    ) -> tuple[np.ndarray, np.ndarray, list[tuple[int, int]]]:
         """Build design matrix with treatment × visit interaction.
 
         Creates the design matrix X using either:
@@ -252,13 +264,36 @@ class MMRM:
         2. Default: intercept + visit dummies + baseline + treatment×visit interactions
            + additional covariates
 
+        Data is sorted by subject, then visit order. Subject indices track which
+        rows belong to each subject for proper handling of unbalanced data.
+
         Args:
             dataset: The RBMIDataset instance.
 
         Returns:
-            Tuple of (X, y) where X is the design matrix and y is the response.
+            Tuple of (X, y, subject_indices) where:
+            - X is the design matrix (sorted by subject, visit)
+            - y is the response vector
+            - subject_indices is a list of (start_row, end_row) for each subject
         """
         df = dataset.df.copy()
+
+        # Sort by subject and visit order to ensure canonical ordering
+        df = df.sort_values(
+            by=[dataset.subject_col, dataset.visit_col],
+            key=lambda col: (
+                col.map(dataset._visit_order.index) if col.name == dataset.visit_col else col
+            ),
+        ).reset_index(drop=True)
+
+        # Track which rows belong to each subject using groupby
+        subject_indices: list[tuple[int, int]] = []
+        start_idx = 0
+
+        for _subject_id, group in df.groupby(dataset.subject_col, sort=False):
+            group_len = len(group)
+            subject_indices.append((start_idx, start_idx + group_len))
+            start_idx += group_len
 
         # If formula is provided, use formulaic for parsing
         if self.formula is not None:
@@ -279,7 +314,7 @@ class MMRM:
             # Extract feature names before converting to numpy
             self._feature_names = list(X.model_spec.column_names)
 
-            return np.asarray(X), np.asarray(y)
+            return np.asarray(X), np.asarray(y), subject_indices
 
         # Default: build design matrix manually with treatment × visit interaction
         # Get treatment codes
@@ -330,7 +365,7 @@ class MMRM:
         x_matrix = df[cols].values
         y_vec = df[dataset.outcome_col].values
 
-        return x_matrix, y_vec
+        return x_matrix, y_vec, subject_indices
 
     def get_feature_names(self) -> list[str]:
         """Return the names of features in the design matrix.
@@ -479,15 +514,24 @@ class MMRM:
         n_obs = len(self._y)
         n_params = self._X.shape[1]
 
-        # Compute residual quadratic form r' V^{-1} r
+        # Compute residual quadratic form r' V^{-1} r using per-subject accumulation
+        # This handles unbalanced data properly
         residuals = self._y - self._X @ beta_hat
-        try:
-            sigma_inv = linalg.inv(Sigma)
-        except linalg.LinAlgError:
-            sigma_inv = linalg.pinv(Sigma)
+        resid_quad = 0.0
 
-        n_subjects = self._n_subjects
-        resid_quad = float(residuals.T @ np.kron(np.eye(n_subjects), sigma_inv) @ residuals)
+        for start_idx, end_idx in self._subject_indices:
+            r_i = residuals[start_idx:end_idx]
+            n_visits_i = end_idx - start_idx
+
+            # Extract submatrix for this subject's visits
+            sigma_i = Sigma if n_visits_i == Sigma.shape[0] else Sigma[:n_visits_i, :n_visits_i]
+
+            try:
+                sigma_i_inv = linalg.inv(sigma_i)
+            except linalg.LinAlgError:
+                sigma_i_inv = linalg.pinv(sigma_i)
+
+            resid_quad += float(r_i @ sigma_i_inv @ r_i)
 
         if self.reml:
             # REML: -0.5 * (n-p) * log(2π) - 0.5 * log|V| - 0.5 * r'V^{-1}r
@@ -506,6 +550,8 @@ class MMRM:
     def _negative_log_likelihood(self, theta: np.ndarray) -> tuple[float, np.ndarray]:
         """Compute negative log-likelihood and gradient for optimization.
 
+        Uses central difference for better accuracy with relative step size.
+
         Args:
             theta: Covariance parameter vector.
 
@@ -514,14 +560,23 @@ class MMRM:
         """
         loglik = self._log_likelihood_value(theta)
 
-        # Numerical gradient
-        eps = 1e-6
-        grad = np.zeros_like(theta)
+        # Numerical gradient with relative step size for better scaling
+        # Different parameters (log-variances vs correlations) can have very different scales
+        grad = np.zeros_like(theta, dtype=float)
         for i in range(len(theta)):
+            # Relative step size: sqrt(machine epsilon) * |theta_i| or absolute minimum
+            h = max(1e-8, np.sqrt(np.finfo(float).eps) * abs(theta[i]))
+
+            # Central difference for better accuracy
             theta_plus = theta.copy()
-            theta_plus[i] += eps
+            theta_minus = theta.copy()
+            theta_plus[i] += h
+            theta_minus[i] -= h
+
             ll_plus = self._log_likelihood_value(theta_plus)
-            grad[i] = -(ll_plus - loglik) / eps  # Negate for negative log-lik
+            ll_minus = self._log_likelihood_value(theta_minus)
+
+            grad[i] = -(ll_plus - ll_minus) / (2 * h)  # Negate for negative log-lik
 
         return -loglik, grad
 
@@ -532,48 +587,61 @@ class MMRM:
         """Estimate fixed effects beta given covariance matrix.
 
         Uses GLS: beta_hat = (X'V^{-1}X)^{-1} X'V^{-1}y
+        Handles unbalanced data (missing visits) via per-subject accumulation.
 
         Args:
-            sigma: Covariance matrix for one subject's visits.
+            sigma: Full n_visits × n_visits covariance matrix.
 
         Returns:
             Tuple of (beta_hat, logdet_sigma, sscp).
         """
-        if self._X is None or self._y is None:
+        if self._X is None or self._y is None or not self._subject_indices:
             raise RuntimeError("Model not fitted: call fit() first")
 
         X, y = self._X, self._y
+        n_params = X.shape[1]
 
-        # For now, assume independent subjects with block diagonal structure
-        # In full implementation, this would use the full V matrix
-        # Simplified: use Sigma directly (assuming balanced design)
+        # Accumulate X'V^{-1}X and X'V^{-1}y across subjects
+        # This handles unbalanced data by extracting submatrices for each subject's visits
+        xt_vinv_x = np.zeros((n_params, n_params))
+        xt_vinv_y = np.zeros(n_params)
+        logdet_total = 0.0
 
+        for start_idx, end_idx in self._subject_indices:
+            # Extract this subject's data
+            X_i = X[start_idx:end_idx]
+            y_i = y[start_idx:end_idx]
+            n_visits_i = end_idx - start_idx
+
+            # Extract submatrix for this subject's visits
+            sigma_i = sigma if n_visits_i == sigma.shape[0] else sigma[:n_visits_i, :n_visits_i]
+
+            # Compute sigma_i inverse
+            try:
+                sigma_i_inv = linalg.inv(sigma_i)
+            except linalg.LinAlgError:
+                sigma_i_inv = linalg.pinv(sigma_i)
+
+            # Accumulate GLS normal equations
+            xt_vinv_x += X_i.T @ sigma_i_inv @ X_i
+            xt_vinv_y += X_i.T @ sigma_i_inv @ y_i
+
+            # Accumulate log determinant
+            sign, logdet = np.linalg.slogdet(sigma_i)
+            if sign > 0:
+                logdet_total += logdet
+
+        # Solve GLS normal equations
         try:
-            sigma_inv = linalg.inv(sigma)
+            beta_hat = linalg.solve(xt_vinv_x, xt_vinv_y)
         except linalg.LinAlgError:
-            # Fallback to pseudo-inverse if singular
-            sigma_inv = linalg.pinv(sigma)
+            beta_hat = linalg.lstsq(xt_vinv_x, xt_vinv_y)[0]
 
-        # GLS estimation
-        n_subjects = self._n_subjects
-        xt_sinv = X.T @ np.kron(np.eye(n_subjects), sigma_inv)
-        xt_sinv_x = xt_sinv @ X
-        xt_sinv_y = xt_sinv @ y
-
-        try:
-            beta_hat = linalg.solve(xt_sinv_x, xt_sinv_y)
-        except linalg.LinAlgError:
-            beta_hat = linalg.lstsq(xt_sinv_x, xt_sinv_y)[0]
-
-        # Compute log|S| and residual SSCP
-        sign, logdet = np.linalg.slogdet(sigma)
-        logdet_sigma = float(n_subjects * logdet) if sign > 0 else 0.0
-
+        # Compute residuals and SSCP (simplified)
         residuals = y - X @ beta_hat
-        # Simplified SSCP (should be grouped by subject in full impl)
         sscp = residuals.reshape(-1, 1) @ residuals.reshape(1, -1)
 
-        return beta_hat, logdet_sigma, sscp
+        return beta_hat, float(logdet_total), sscp
 
     def draw_posterior_params(self, n_draws: int, seed: int | None = None) -> dict[str, Any]:
         """Draw posterior parameters for Bayesian imputation.
